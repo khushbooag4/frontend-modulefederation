@@ -94,10 +94,14 @@ const DEFAULT_THEME = {
       500: '#FDDFD8',
       600: '#feefeb',
       700: '#B9FBC0',
-      800: '#FDF2EE'
+      800: '#FDF2EE',
+      900: '#AA948E'
     },
     calendarBtncolor: {
       500: '#BCBCBC'
+    },
+    calendarDatecolor: {
+      500: '#BCC1CD'
     },
     selfAicon: {
       500: '#545454'
@@ -117,12 +121,27 @@ const DEFAULT_THEME = {
     successAlert: {
       500: '#B9FBC0'
     },
+    warningAlert: {
+      500: '#FFE5B3'
+    },
+    warningAlertText: {
+      500: '#373839'
+    },
     successAlertText: {
       500: '#0D921B'
     },
     classCard: {
       500: '#D9F0FC',
       900: '#7F9DAC'
+    },
+    timeTablecellbg: {
+      500: '#FFEFEB'
+    },
+    timeTablecellborder: {
+      500: '#FFDFD6'
+    },
+    timeTablemiddle: {
+      500: '#A1D6B6'
     },
     attendanceCard: {
       500: '#C9AFF4',
@@ -180,8 +199,14 @@ const DEFAULT_THEME = {
       500: '#FFF8F7'
     },
     worksheetCard: {
+      200: '#FEF1F9',
       500: '#F9CCE4',
+      800: '#C79AB2',
       900: '#C08FA9'
+    },
+    worksheetBoxText: {
+      400: '#333333',
+      500: '#373839'
     },
     reportBoxBg: {
       400: '#FFF8F7',

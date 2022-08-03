@@ -5,6 +5,7 @@ import {
   Menu,
   classRegistryService,
   studentRegistryService,
+  overrideColorTheme,
 } from "@shiksha/common-lib";
 import { Stack } from "native-base";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,9 @@ import ClassSubjectsPanel from "./Molecules/ClassSubjectsPanel";
 import ClassAttendanceCard from "./Molecules/ClassAttendanceCard";
 import ClassDetailsPanel from "./Molecules/ClassDetailsPanel";
 import { _header } from "./assets";
+import colorTheme from "../../colorTheme";
+
+const colors = overrideColorTheme(colorTheme);
 
 const ClassDetails = ({ footerLinks }) => {
   const { t } = useTranslation();
@@ -47,7 +51,7 @@ const ClassDetails = ({ footerLinks }) => {
       imageUrl={
         !loading
           ? classObject.image && classObject.image !== ""
-            ? `${manifest.api_url}/files/${encodeURIComponent(
+            ? `${process.env.REACT_APP_API_URL}/files/${encodeURIComponent(
                 classObject.image
               )}`
             : `${window.location.origin}/class.png`
@@ -74,7 +78,7 @@ const ClassDetails = ({ footerLinks }) => {
       }
       _subHeader={{
         bottom: "15px",
-        bg: "classCard.500",
+        bg: colors.cardBg,
       }}
       _footer={footerLinks}
     >

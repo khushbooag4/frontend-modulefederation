@@ -5,6 +5,11 @@ import {
   telemetryFactory,
   useWindowSize,
   attendanceRegistryService,
+  BodyMedium,
+  BodyLarge,
+  H2,
+  H1,
+  overrideColorTheme,
 } from "@shiksha/common-lib";
 import {
   Actionsheet,
@@ -23,25 +28,31 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Camera from "./Camera";
 import moment from "moment";
+import colorTheme from "../colorTheme";
 
+const PRESENT = "Present";
+const ABSENT = "Absent";
+const UNMARKED = "Unmarked";
+
+const colors = overrideColorTheme(colorTheme);
 const newMarkList = [
   {
     icon: "CheckboxCircleLineIcon",
     name: "MARK_PRESENT",
-    attendance: "Present",
+    attendance: PRESENT,
     color: "present",
   },
   {
     icon: "AwardLineIcon",
     name: "MARK_SPECIAL_DUTY",
-    attendance: "Present",
+    attendance: PRESENT,
     rightIcon: "ArrowRightSLineIcon",
     color: "special_duty",
   },
   {
     icon: "CloseCircleLineIcon",
     name: "MARK_ABSENT",
-    attendance: "Absent",
+    attendance: ABSENT,
     color: "absent",
   },
 ];
@@ -50,41 +61,42 @@ const newSpecialDutyList = [
     icon: "UserStarLineIcon",
     name: "ELECTION",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
   {
     icon: "BookMarkLineIcon",
     name: "EVALUATION",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
   {
     icon: "SearchEyeLineIcon",
     name: "INTERVIEW",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
   {
     icon: "StarLineIcon",
     name: "INVIGILITION",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
   {
     icon: "SpyLineIcon",
     name: "INSPECTION",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
   {
     icon: "StarLineIcon",
     name: "TRAINING",
     color: "special_duty",
-    attendance: "Present",
+    attendance: PRESENT,
   },
 ];
 
 export default function SelfAttedanceSheet({
+  children,
   showModal,
   setShowModal,
   setAttendance,
@@ -104,7 +116,7 @@ export default function SelfAttedanceSheet({
   const [selfAttendance, setSelfAttendance] = React.useState({});
   const navigate = useNavigate();
 
-  const handleTelemetry = () => {
+  const handleTelemetry = (newAttedance) => {
     const telemetryData = telemetryFactory.interact({
       appName,
       type: "Self-Attendance-End-Mark",
@@ -113,14 +125,20 @@ export default function SelfAttedanceSheet({
       duration: 10,
     });
     capture("END", telemetryData);
-    setDone(true);
+    if (newAttedance.attendance == UNMARKED) {
+      setDone(false);
+      setShowModal(false);
+    } else {
+      setDone(true);
+    }
   };
 
-  const handleResetToUnmarkTelemetry = () => {
+  const handleResetToUnmarkTelemetry = (item) => {
     const newAttedance = {
       ...selfAttendance,
-      attendance: "Unmarked",
+      attendance: UNMARKED,
       remark: "",
+      name: t(item.name),
     };
     setSelfAttendance(newAttedance);
     const telemetryData = telemetryFactory.interact({
@@ -132,15 +150,19 @@ export default function SelfAttedanceSheet({
   };
 
   const markSelfAttendance = (image) => {
-    setLoding(true);
-    setCameraUrl(image);
-    let newAttedance = {
-      ...selfAttendance,
-      date: moment().format("YYYY-MM-DD"),
-      studentId: localStorage.getItem("id"),
-      image: image,
-    };
-    handleMarkAttendance(newAttedance);
+    if (image) {
+      setLoding(true);
+      setCameraUrl(image);
+      let newAttedance = {
+        ...selfAttendance,
+        date: moment().format("YYYY-MM-DD"),
+        studentId: localStorage.getItem("id"),
+        image: image,
+      };
+      handleMarkAttendance(newAttedance);
+    } else {
+      setCameraUrl();
+    }
   };
 
   const handleMarkAttendance = (newAttedance) => {
@@ -177,8 +199,8 @@ export default function SelfAttedanceSheet({
         )
         .then((e) => {
           setLoding(false);
-          handleTelemetry();
-          setAttendance(newAttedance);
+          handleTelemetry(newAttedance);
+          if (setAttendance) setAttendance(newAttedance);
         });
     } else {
       attendanceRegistryService
@@ -189,8 +211,8 @@ export default function SelfAttedanceSheet({
         })
         .then((e) => {
           setLoding(false);
-          handleTelemetry();
-          setAttendance(newAttedance);
+          handleTelemetry(newAttedance);
+          if (setAttendance) setAttendance(newAttedance);
         });
     }
   };
@@ -206,43 +228,43 @@ export default function SelfAttedanceSheet({
         userId: localStorage.getItem("id"),
       });
       const todayAttendance = todayAttendanceResult.find((e) =>
-        ["Present", "Absent", "Unmarked"].includes(e.attendance)
+        [PRESENT, ABSENT, UNMARKED].includes(e.attendance)
       );
       if (todayAttendance?.attendance) {
         let newAttedance = {
           ...todayAttendance,
           name:
-            todayAttendance.attendance === "Present" && todayAttendance.remark
+            todayAttendance.attendance === PRESENT && todayAttendance.remark
               ? todayAttendance.remark
-              : todayAttendance.attendance === "Present"
+              : todayAttendance.attendance === PRESENT
               ? t("MARK_PRESENT")
-              : todayAttendance.attendance === "Absent"
+              : todayAttendance.attendance === ABSENT
               ? t("MARK_ABSENT")
               : "",
         };
         setSelfAttendance(newAttedance);
-        setAttendance(newAttedance);
+        if (setAttendance) setAttendance(newAttedance);
 
-        if (todayAttendance?.attendance !== "Unmarked") {
-          setMarkList([
-            ...newMarkList,
-            {
-              icon: "RefreshLineIcon",
-              name: "RESET_TO_UNMARK",
-              attendance: "Unmarked",
-              color: "gray",
-            },
-          ]);
-          setSpecialDutyList([
-            ...newSpecialDutyList,
-            {
-              icon: "RefreshLineIcon",
-              name: "RESET_TO_UNMARK",
-              attendance: "Unmarked",
-              color: "gray",
-            },
-          ]);
-        }
+        // if (todayAttendance?.attendance == (PRESENT || ABSENT)) {
+        //   setMarkList([
+        //     ...newMarkList,
+        //     {
+        //       icon: "RefreshLineIcon",
+        //       name: "RESET_TO_UNMARK",
+        //       attendance: UNMARKED,
+        //       color: "gray",
+        //     },
+        //   ]);
+        //   setSpecialDutyList([
+        //     ...newSpecialDutyList,
+        //     {
+        //       icon: "RefreshLineIcon",
+        //       name: "RESET_TO_UNMARK",
+        //       attendance: UNMARKED,
+        //       color: "gray",
+        //     },
+        //   ]);
+        //  }
       }
     }
     getData();
@@ -250,6 +272,36 @@ export default function SelfAttedanceSheet({
       ignore = true;
     };
   }, []);
+
+  const handleGoBack = () => {
+    navigate("/");
+    setDone(false);
+    setCameraModal(false);
+    setLocationModal(false);
+    setShowModal(false);
+    setCameraUrl();
+  };
+
+  const setAttendanceMark = (e) => {
+    if (selfAttendance.attendance == ABSENT) {
+      setLocationModal(false);
+      setShowModal(true);
+      setDone(true);
+      setCameraModal(false);
+      handleMarkAttendance(selfAttendance);
+    } else if (
+      selfAttendance.attendance == PRESENT &&
+      selfAttendance.name === selfAttendance.remark
+    ) {
+      setLocationModal(false);
+      setShowModal(true);
+      setDone(true);
+      setCameraModal(false);
+      handleMarkAttendance(selfAttendance);
+    }
+    setLocationModal(true);
+    setShowModal(false);
+  };
 
   const getLocation = () => {
     if (navigator.geolocation) {
@@ -271,7 +323,7 @@ export default function SelfAttedanceSheet({
         position="fixed"
         zIndex={100}
         {...{ width, height }}
-        bg="white"
+        bg={colors.white}
         justifyContent="center"
         p="5"
       >
@@ -285,7 +337,7 @@ export default function SelfAttedanceSheet({
         position="fixed"
         zIndex={100}
         {...{ width, height }}
-        bg="white"
+        bg={colors.white}
         justifyContent="center"
         p="5"
       >
@@ -296,34 +348,34 @@ export default function SelfAttedanceSheet({
               uri: cameraUrl,
             }}
             rounded="full"
-            alt="Profile"
+            alt=""
             size="250px"
           />
           <VStack space="3" alignItems="center">
             <IconByName
               name="CheckboxCircleLineIcon"
-              color="present.500"
+              color={colors.present}
               _icon={{
                 size: "47px",
               }}
             />
-            <Text fontSize="24" fontWeight="600" color="present.500">
-              {t("ATTENDANCE_MARKED")}
-            </Text>
-            <Text fontSize="14" fontWeight="400" textAlign="center">
-              {t("YOU_SUCCESS_UPLOAD_IMAGE_ATTENDANCE")}
-            </Text>
+            <H1 color={colors.present}>{t("ATTENDANCE_MARKED")}</H1>
+            <BodyMedium textAlign="center">
+              {selfAttendance.attendance === PRESENT &&
+              selfAttendance.name !== selfAttendance.remark
+                ? t("YOU_SUCCESS_UPLOAD_IMAGE_ATTENDANCE")
+                : ""}
+            </BodyMedium>
           </VStack>
-          <Button _text={{ color: "white" }} onPress={(e) => navigate("/")}>
-            {t("BACK_TO_HOME")}
+          <Button _text={{ color: colors.white }} onPress={handleGoBack}>
+            {t("GO_BACK")}
           </Button>
         </VStack>
       </Box>
     );
   }
-
-  return (
-    <>
+  if (cameraModal) {
+    return (
       <Camera
         {...{
           cameraModal,
@@ -332,69 +384,76 @@ export default function SelfAttedanceSheet({
           setCameraUrl: markSelfAttendance,
         }}
       />
-      <Modal isOpen={locationModal} onClose={() => setLocationModal(false)}>
-        <Modal.Content maxWidth="400px">
-          <Modal.Body>
-            <VStack space="6" textAlign="center" py="20px" px="30px">
-              <IconByName
-                alignSelf="center"
-                name="MapPinLineIcon"
-                isDisabled
-                color="button.500"
-                _icon={{
-                  size: "60px",
-                }}
-              />
-              <Text fontSize="18px" fontWeight={"600"}>
-                Turn on device location.
-              </Text>
-              <Text fontSize="14px" fontWeight={"500"}>
-                Attendance marking requires to log in your device location.
-                Without location, the app can't mark your attendance.
-              </Text>
-              <Button.Group space={2}>
-                <Button
-                  flex={1}
-                  variant="outline"
-                  onPress={() => {
-                    setLocationModal(false);
-                    setShowModal(true);
+    );
+  }
+  if (locationModal) {
+    return (
+      <>
+        {children}
+        <Modal isOpen={locationModal} onClose={() => setLocationModal(false)}>
+          <Modal.Content maxWidth="400px">
+            <Modal.Body>
+              <VStack space="6" textAlign="center" py="20px" px="30px">
+                <IconByName
+                  alignSelf="center"
+                  name="MapPinLineIcon"
+                  isDisabled
+                  color={colors.primary}
+                  _icon={{
+                    size: "60px",
                   }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  flex={1}
-                  _text={{ color: "white" }}
-                  onPress={() => {
-                    getLocation();
-                    setLocationModal(false);
-                    setCameraModal(true);
-                  }}
-                >
-                  Turn On
-                </Button>
-              </Button.Group>
-            </VStack>
-          </Modal.Body>
-        </Modal.Content>
-      </Modal>
+                />
+                <H2>{t("TURN_ON_DEVICE_LOCATION")}</H2>
+                <BodyLarge>
+                  {t("DEVICE_LOCATION_CANT_MARK_ATTENDANCE")}
+                </BodyLarge>
+                <Button.Group space={2}>
+                  <Button
+                    flex={1}
+                    variant="outline"
+                    onPress={() => {
+                      setLocationModal(false);
+                      setShowModal(true);
+                    }}
+                  >
+                    {t("CANCEL")}
+                  </Button>
+                  <Button
+                    flex={1}
+                    _text={{ color: colors.white }}
+                    onPress={() => {
+                      getLocation();
+                      setLocationModal(false);
+                      setCameraModal(true);
+                    }}
+                  >
+                    {t("TURN_ON")}
+                  </Button>
+                </Button.Group>
+              </VStack>
+            </Modal.Body>
+          </Modal.Content>
+        </Modal>
+      </>
+    );
+  }
+  return (
+    <>
+      {children}
       <Actionsheet isOpen={showModal} onClose={() => setShowModal(false)}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={2} pb="5px">
-              <Text fontSize="16px" fontWeight={"600"}>
-                {t("ATTENDANCE")}
-              </Text>
+            <Stack p={5} pt={2} pb="10px">
+              <H2>{t("ATTENDANCE")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
               onPress={(e) => setShowModal(false)}
-              color="classCard.900"
+              color={colors.cardCloseIcon}
             />
           </HStack>
         </Actionsheet.Content>
-        <Box w="100%" justifyContent="center" bg="white">
+        <Box w="100%" justifyContent="center" bg={colors.white}>
           {markList.map((item, index) => {
             let isActive =
               selfAttendance?.name === t(item.name) ||
@@ -409,7 +468,7 @@ export default function SelfAttedanceSheet({
                 bg={selfAttendance?.name === t(item.name) ? "gray.100" : ""}
                 onPress={(e) => {
                   if (item.name === "RESET_TO_UNMARK") {
-                    handleResetToUnmarkTelemetry();
+                    handleResetToUnmarkTelemetry(item);
                   } else if (item.name === "MARK_SPECIAL_DUTY") {
                     setSpecialDutyModal(true);
                   } else {
@@ -417,6 +476,7 @@ export default function SelfAttedanceSheet({
                       ...selfAttendance,
                       attendance: item.attendance,
                       name: t(item.name),
+                      remark: "",
                     });
                   }
                 }}
@@ -434,14 +494,12 @@ export default function SelfAttedanceSheet({
                       mt="1"
                       p="5px"
                       rounded="full"
-                      bg={isActive ? item.color + ".500" : "gray.100"}
-                      colorScheme={isActive ? item.color : "gray"}
-                      color={isActive ? "white" : "selfAicon.500"}
+                      bg={isActive ? item.color + ".500" : colors.white}
+                      colorScheme={isActive ? item.color : colors.gray}
+                      color={isActive ? colors.white : colors.isActive}
                       _icon={{ size: "18" }}
                     />
-                    <Text fontSize="14px" fontWeight={500}>
-                      {t(item.name)}
-                    </Text>
+                    <BodyLarge>{t(item.name)}</BodyLarge>
                   </HStack>
 
                   {item.rightIcon ? (
@@ -472,16 +530,15 @@ export default function SelfAttedanceSheet({
             <Button
               flex="1"
               ml="5px"
-              colorScheme={selfAttendance?.attendance ? "button" : "coolGray"}
+              colorScheme={
+                selfAttendance?.attendance ? "button" : colors.primaryColorgray
+              }
               isDisabled={selfAttendance?.attendance ? false : true}
               _text={{
                 textTransform: "uppercase",
-                color: selfAttendance?.attendance ? "white" : "",
+                color: selfAttendance?.attendance ? colors.white : "",
               }}
-              onPress={(e) => {
-                setLocationModal(true);
-                setShowModal(false);
-              }}
+              onPress={setAttendanceMark}
             >
               {t("MARK")}
             </Button>
@@ -492,22 +549,20 @@ export default function SelfAttedanceSheet({
         isOpen={specialDutyModal}
         onClose={() => setSpecialDutyModal(false)}
       >
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
             <HStack pt={2} pb="5px" alignItems="center">
               <IconByName
                 name="ArrowLeftSLineIcon"
                 onPress={(e) => setSpecialDutyModal(false)}
-                color="classCard.900"
+                color={colors.cardCloseIcon}
               />
-              <Text fontSize="16px" fontWeight={"600"}>
-                {t("SELECT_DUTY_TYPE")}
-              </Text>
+              <H2>{t("SELECT_DUTY_TYPE")}</H2>
             </HStack>
             <IconByName
               name="CloseCircleLineIcon"
               onPress={(e) => setSpecialDutyModal(false)}
-              color="classCard.900"
+              color={colors.cardCloseIcon}
             />
           </HStack>
         </Actionsheet.Content>
@@ -523,7 +578,7 @@ export default function SelfAttedanceSheet({
                 } else {
                   setSelfAttendance({
                     ...selfAttendance,
-                    attendance: "Present",
+                    attendance: PRESENT,
                     remark: t(item.name),
                     name: t(item.name),
                   });
@@ -555,14 +610,12 @@ export default function SelfAttedanceSheet({
                     }
                     color={
                       selfAttendance?.name === t(item.name)
-                        ? "white"
+                        ? colors.white
                         : "gray.500"
                     }
                     _icon={{ size: "18" }}
                   />
-                  <Text fontSize="14px" fontWeight={500}>
-                    {t(item.name)}
-                  </Text>
+                  <BodyLarge>{t(item.name)}</BodyLarge>
                 </HStack>
 
                 {item.rightIcon ? (
@@ -588,7 +641,7 @@ export default function SelfAttedanceSheet({
               flex="1"
               ml="5px"
               colorScheme="button"
-              _text={{ color: "white" }}
+              _text={{ color: colors.white }}
               onPress={(e) => setSpecialDutyModal(false)}
             >
               {t("MARK")}

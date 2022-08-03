@@ -29,7 +29,7 @@ export const getAll = async (params = {}, header = {}) => {
     Authorization: 'Bearer ' + localStorage.getItem('token')
   }
 
-  const result = await get(manifest.api_url + '/attendance', {
+  const result = await get(process.env.REACT_APP_API_URL + '/attendance', {
     params: { ...params },
     headers
   })
@@ -40,7 +40,34 @@ export const getAll = async (params = {}, header = {}) => {
   }
 }
 
+export const getOne = async (params = {}, header = {}) => {
+  let headers = {
+    ...header,
+    Authorization: 'Bearer ' + localStorage.getItem('token')
+  }
+
+  const result = await get(
+    process.env.REACT_APP_API_URL +
+      `/attendance/usersegment/` +
+      `${params.attendance}`,
+    {
+      params: { ...params },
+      headers
+    }
+  )
+  if (result.data) {
+    //return result.data.data.map((e) => mapInterfaceData(e, interfaceData))
+    return result.data.data
+  } else {
+    return []
+  }
+}
+
 export const create = async (data, headers = {}) => {
+  let header = {
+    ...headers,
+    Authorization: 'Bearer ' + localStorage.getItem('token')
+  }
   let newInterfaceData = interfaceData
   newInterfaceData = {
     ...interfaceData,
@@ -48,18 +75,26 @@ export const create = async (data, headers = {}) => {
     onlyParameter: headers?.onlyParameter ? headers?.onlyParameter : only
   }
   let newData = mapInterfaceData(data, newInterfaceData, true)
-  const result = await post(manifest.api_url + '/attendance', newData, {
-    headers: headers?.headers ? headers?.headers : {}
-  })
+  const result = await post(
+    process.env.REACT_APP_API_URL + '/attendance',
+    newData,
+    {
+      headers: header
+    }
+  )
   if (result.data) {
-    return true
-    // return result.data.map((e) => mapInterfaceData(e, interfaceData));
+    let { Attendance } = result.data?.data?.result
+    return Attendance
   } else {
     return false
   }
 }
 
 export const update = async (data = {}, headers = {}) => {
+  let header = {
+    ...headers,
+    Authorization: 'Bearer ' + localStorage.getItem('token')
+  }
   let newInterfaceData = interfaceData
   newInterfaceData = {
     ...interfaceData,
@@ -69,11 +104,28 @@ export const update = async (data = {}, headers = {}) => {
   let newData = mapInterfaceData(data, newInterfaceData, true)
 
   const result = await coreUpdate(
-    manifest.api_url + '/attendance/' + data.id,
+    process.env.REACT_APP_API_URL + '/attendance/' + data.id,
     newData,
     {
-      headers: headers?.headers ? headers?.headers : {}
+      headers: header
     }
+  )
+  if (result.data) {
+    return result
+  } else {
+    return {}
+  }
+}
+
+export const multipal = async (data = {}, header = {}) => {
+  let headers = {
+    ...header,
+    Authorization: 'Bearer ' + localStorage.getItem('token')
+  }
+  const result = await post(
+    process.env.REACT_APP_API_URL + '/attendance/bulkAttendance',
+    data,
+    { headers }
   )
   if (result.data) {
     return result

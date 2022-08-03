@@ -5,8 +5,14 @@ import {
   H2,
   IconByName,
   classRegistryService,
+  overrideColorTheme,
+  H1,
+  BodySmall,
 } from "@shiksha/common-lib";
-import { Stack, Box, VStack, Heading, HStack } from "native-base";
+import { Stack, Box, VStack, HStack, Menu, Pressable } from "native-base";
+import colorTheme from "../../colorTheme";
+
+const colors = overrideColorTheme(colorTheme);
 
 export const routes = () => {
   const { t } = useTranslation();
@@ -42,9 +48,9 @@ const SubjectRoute = () => {
       <Box
         borderBottomWidth="1"
         _dark={{
-          borderColor: "gray.600",
+          borderColor: colors.coolGraydark,
         }}
-        borderColor="coolGray.200"
+        borderColor={colors.lightGrayBg}
         pr="1"
       >
         <Stack space={2}>
@@ -55,10 +61,10 @@ const SubjectRoute = () => {
                 <Box
                   rounded="full"
                   borderWidth="1"
-                  borderColor="button.500"
+                  borderColor={colors.primary}
                   px="6px"
                   _text={{
-                    color: "button.500",
+                    color: colors.primary,
                     fontSize: "10px",
                     fontWeight: "600",
                   }}
@@ -73,9 +79,9 @@ const SubjectRoute = () => {
       <Box
         borderBottomWidth="1"
         _dark={{
-          borderColor: "gray.600",
+          borderColor: colors.coolGraydark,
         }}
-        borderColor="coolGray.200"
+        borderColor={colors.lightGrayBg}
         pr="1"
       >
         <Stack space={2}>
@@ -86,10 +92,10 @@ const SubjectRoute = () => {
                 <Box
                   rounded="full"
                   borderWidth="1"
-                  borderColor="button.500"
+                  borderColor={colors.primary}
                   px="6px"
                   _text={{
-                    color: "button.500",
+                    color: colors.primary,
                     fontSize: "10px",
                     fontWeight: "600",
                   }}
@@ -110,10 +116,10 @@ const SubjectRoute = () => {
                 <Box
                   rounded="full"
                   borderWidth="1"
-                  borderColor="button.500"
+                  borderColor={colors.primary}
                   px="6px"
                   _text={{
-                    color: "button.500",
+                    color: colors.primary,
                     fontSize: "10px",
                     fontWeight: "600",
                   }}
@@ -133,8 +139,12 @@ export const _header = (data) => {
   const { t } = useTranslation();
   const onFileUpload = async (event) => {
     const formData = new FormData();
-    const file = event.target.files[0];
-    formData.append("image", file, file.name);
+    if (event.target.files) {
+      const file = event.target.files[0];
+      formData.append("image", file, file.name);
+    } else {
+      formData.image = " ";
+    }
     formData.id = data?.classId;
     await classRegistryService.updateImage(formData);
     if (data?.getClass) {
@@ -155,37 +165,51 @@ export const _header = (data) => {
         >
           <HStack alignItems="center" justifyContent="space-between">
             <VStack>
-              <H2 color="gray.100" fontWeight="700">
-                {data?.name}
-              </H2>
-
-              <Heading color="gray.100" fontWeight="700" fontSize="2xl">
-                {t("CLASS_DETAILS")}
-              </Heading>
+              <H2 color={colors.white}>{data?.name}</H2>
+              <H1 color={colors.white}>{t("CLASS_DETAILS")}</H1>
             </VStack>
-            <HStack alignItems="center">
-              <Stack>
-                <input
-                  type="file"
-                  style={{
-                    opacity: 0,
-                    width: "24px",
-                    position: "absolute",
-                    padding: "5px",
-                    zIndex: "10",
-                    top: "5px",
-                    left: "0",
+            {/* <HStack alignItems="center">
+              <Box px="3">
+                <Menu
+                  right="100%"
+                  width="150"
+                  trigger={(triggerProps) => {
+                    return (
+                      <Pressable {...triggerProps}>
+                        <IconByName
+                          isDisabled
+                          color={colors.white}
+                          name="CameraLineIcon"
+                        />
+                      </Pressable>
+                    );
                   }}
-                  onChange={onFileUpload}
-                />
-                <IconByName
-                  color="white"
-                  name="CameraLineIcon"
-                  // onPress={onFileUpload}
-                />
-              </Stack>
-              <IconByName color="white" name="ShareLineIcon" />
-            </HStack>
+                >
+                  {/* <Menu.Item>
+                    <Pressable onPress={onFileUpload}>
+                      <BodySmall>{t("REMOVE_PHOTO")}</BodySmall>
+                    </Pressable>
+                  </Menu.Item> */}
+            {/* <Menu.Item>
+                    <BodySmall>{t("UPLOAD_PHPTP")}</BodySmall>
+                    <input
+                      type="file"
+                      style={{
+                        opacity: 0,
+                        width: "100%",
+                        position: "absolute",
+                        padding: "5px",
+                        zIndex: "10",
+                        top: "5px",
+                        left: "0",
+                      }}
+                      onChange={onFileUpload}
+                    />
+                  </Menu.Item> */}
+            {/* </Menu> */}
+            {/* </Box>
+              <IconByName color={colors.white} name="ShareLineIcon" />}
+            </HStack> } */}
           </HStack>
         </Box>
       </Box>

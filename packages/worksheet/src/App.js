@@ -7,6 +7,10 @@ import Teaching from "pages/Teaching";
 import TeachingDetail from "pages/TeachingDetail";
 import WorksheetQuestionBank from "pages/WorksheetQuestionBank";
 import CreateWorksheet from "pages/CreateWorksheet";
+import EditWorksheet from "pages/EditWorksheet";
+import WorksheetTemplate from "pages/WorksheetTemplate";
+import Worksheet from "./pages/Worksheet";
+import WorksheetShare from "./pages/WorksheetShare";
 
 function App() {
   const theme = extendTheme(DEFAULT_THEME);
@@ -16,20 +20,40 @@ function App() {
   );
   const routes = [
     {
-      path: "/view",
+      path: "/worksheet/list/:state",
+      component: Worksheet,
+    },
+    {
+      path: "/worksheet/list",
+      component: Worksheet,
+    },
+    {
+      path: "/worksheet/:classId/view",
       component: TeachingDetail,
     },
     {
-      path: "/questionBank",
+      path: "/worksheet/:worksheetId/share",
+      component: WorksheetShare,
+    },
+    {
+      path: "/worksheet/questionBank",
       component: QuestionBank,
     },
     {
-      path: "/:id",
+      path: "/worksheet/:id",
       component: WorksheetQuestionBank,
+    },
+    {
+      path: "/worksheet/:id/edit",
+      component: EditWorksheet,
     },
     {
       path: "/worksheet/create",
       component: CreateWorksheet,
+    },
+    {
+      path: "/worksheet/template",
+      component: WorksheetTemplate,
     },
     {
       path: "*",
@@ -44,6 +68,7 @@ function App() {
       basename={process.env.PUBLIC_URL}
       routes={routes}
       AuthComponent={LoginComponent}
+      _authComponent={{ swPath: "/modules/worksheet" }}
     />
   );
 }

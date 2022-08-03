@@ -1,32 +1,25 @@
 import {
-  Collapsible,
-  H1,
-  IconByName,
-  Layout,
+  capture,
+  telemetryFactory,
   Loading,
-  useWindowSize,
+  Layout,
+  H2,
+  questionRegistryService,
+  overrideColorTheme,
+  getApiConfig,
 } from "@shiksha/common-lib";
-import QuestionBox from "components/QuestionBox";
-import WorksheetBox from "components/WorksheertBox";
-import {
-  HStack,
-  Stack,
-  Button,
-  Text,
-  Actionsheet,
-  Box,
-  Pressable,
-  Checkbox,
-  VStack,
-  Center,
-  ScrollView,
-  FormControl,
-  Input,
-} from "native-base";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { getAllQuestions } from "services";
-import manifest from "../manifest.json";
+import manifestLocal from "../manifest.json";
+import SuccessPage from "../components/CreateWorksheet/SuccessPage";
+import FormPage from "../components/CreateWorksheet/Form";
+import AddDescriptionPage from "../components/CreateWorksheet/AddDescriptionPage";
+import WorksheetTemplate from "../components/CreateWorksheet/WorksheetTemplate";
+import ListOfQuestions from "../components/CreateWorksheet/ListOfQuestions";
+import { defaultInputs, autoGenerateInputs } from "../config/worksheetConfig";
+import { useNavigate } from "react-router-dom";
+import colorTheme from "../colorTheme";
+const colors = overrideColorTheme(colorTheme);
 
 export default function CreateWorksheet({ footerLinks, appName }) {
   const { t } = useTranslation();
@@ -34,98 +27,120 @@ export default function CreateWorksheet({ footerLinks, appName }) {
   const [questions, setQuestions] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [formObject, setFormObject] = React.useState({});
-  const [width, height] = useWindowSize();
+  const [limit, setLimit] = React.useState({});
+  const [alertMessage, setAlertMessage] = React.useState();
+  const [createType, setCreateType] = React.useState("create");
+  const [worksheetStartTime, setWorksheetStartTime] = React.useState();
+  const [manifest, setManifest] = React.useState();
+  const [worksheetConfig, setWorksheetConfig] = React.useState([]);
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    const telemetryData = telemetryFactory.interact({
+      appName,
+      type: "Worksheet-Create",
+    });
+    capture("INTERACT", telemetryData);
+  }, []);
 
   React.useEffect(async () => {
-    if (pageName === "ListOfWorksheet") {
-      const questions = await getAllQuestions(formObject);
-      setQuestions(questions);
+    const telemetryData = telemetryFactory.interact({
+      appName,
+      type: "Worksheet-Create",
+    });
+    capture("INTERACT", telemetryData);
+
+    const newManifest = await getApiConfig({ modules: { eq: "Worksheet" } });
+    setWorksheetConfig(
+      Array.isArray(newManifest?.["worksheet.worksheetMetadata"])
+        ? newManifest?.["worksheet.worksheetMetadata"]
+        : newManifest?.["worksheet.worksheetMetadata"]
+        ? JSON.parse(newManifest?.["worksheet.worksheetMetadata"])
+        : []
+    );
+    setManifest(newManifest);
+  }, []);
+
+  React.useEffect(async () => {
+    if (pageName === "ListOfQuestions" || pageName === "WorksheetTemplate") {
+      setLoading(true);
+      const newAttribute = [...defaultInputs, ...autoGenerateInputs];
+      const attribute = newAttribute.map((e) =>
+        !["source", "number_of_questions"].includes(e.attributeName)
+          ? e.attributeName
+          : null
+      );
+      if (!formObject.source) {
+        setAlertMessage(t("PLEASE_SELECT_SOURCE"));
+        setPageName();
+      } else if (!limit?.limit && createType === "auto") {
+        setAlertMessage(t("PLEASE_SELECT_LIMIT"));
+        setPageName();
+      } else {
+        let data = {
+          adapter: formObject.source,
+          limit: 10,
+        };
+        attribute.forEach((item, index) => {
+          if (formObject[item]) data = { ...data, [item]: formObject[item] };
+        });
+        const newQuestions = await questionRegistryService.getAllQuestions(
+          data
+        );
+        setQuestions(newQuestions);
+        if (newQuestions.length <= 0) {
+          setAlertMessage(
+            <H2 textTransform="none">{t("QUESTION_NOT_FOUND")}</H2>
+          );
+          setPageName();
+        } else {
+          setAlertMessage();
+        }
+      }
       setLoading(false);
     }
-  }, [formObject, pageName === "ListOfWorksheet"]);
+  }, [formObject, ["ListOfQuestions", "WorksheetTemplate"].includes(pageName)]);
 
   if (loading) {
     return <Loading />;
   }
 
+  const handleBackButton = () => {
+    if (pageName === "success") {
+      setPageName();
+      setQuestions([]);
+      setFormObject({});
+      setLimit({});
+      setCreateType("create");
+    } else if (pageName === "AddDescriptionPage") {
+      setPageName("filterData");
+    } else if (pageName === "filterData") {
+      setPageName("ListOfQuestions");
+    } else if (["ListOfQuestions", "WorksheetTemplate"].includes(pageName)) {
+      setPageName("");
+    } else {
+      navigate(-1);
+    }
+  };
+
+  const handleWorksheetTemplateOnPress = () => {
+    setFormObject({ ...formObject, state: "Publish" });
+    setPageName("AddDescriptionPage");
+    const telemetryData = telemetryFactory.interact({
+      appName,
+      type: "Worksheet-Template-Choose",
+    });
+    capture("INTERACT", telemetryData);
+  };
+
   if (pageName === "success") {
     return (
-      <Layout
-        _appBar={{
-          languages: manifest.languages,
-          color: "successAlertText.500",
-          _box: { bg: "successAlert.500" },
-        }}
-      >
-        <Loading
-          width={width}
-          height={height - 230}
-          customComponent={
-            <VStack space="2" flex="1">
-              <VStack bg="successAlert.500" pb="100px" pt="32px">
-                <IconByName
-                  alignSelf="center"
-                  name="CheckboxCircleLineIcon"
-                  color="successAlertText.500"
-                  _icon={{ size: 100 }}
-                />
-                <Box alignSelf="center">
-                  <H1
-                    fontSize="22px"
-                    fontWeight="600"
-                    color="successAlertText.500"
-                  >
-                    Worksheet Published
-                  </H1>
-                </Box>
-              </VStack>
-              <Box p="5">
-                <WorksheetBox
-                  {...{
-                    item: {
-                      id: 1,
-                      image: "",
-                      heading: "Maps of the World",
-                      subHeading: "NCERT Workbook",
-                      class: "V",
-                      likes: "4",
-                      comments: "0",
-                      description:
-                        "Worksheets help the kids in exploring multiple concepts and ideas. They develop fine motor skills and logical thinking.",
-                      subject: "Math",
-                      level: "Beginner",
-                      grade: "VI",
-                      questions: "30",
-                      chapter: "3",
-                      downloads: "3",
-                    },
-                  }}
-                />
-              </Box>
-            </VStack>
-          }
-        />
-        <Box
-          bg="white"
-          p="5"
-          position="fixed"
-          width="100%"
-          bottom="0"
-          shadow={2}
-        >
-          <Button
-            colorScheme="button"
-            _text={{ color: "white" }}
-            px="5"
-            flex="1"
-            onPress={(e) => {
-              setPageName();
-            }}
-          >
-            {t("Back to Worksheets")}
-          </Button>
-        </Box>
-      </Layout>
+      <SuccessPage
+        appName={appName}
+        handleBackButton={handleBackButton}
+        formObject={formObject}
+        worksheetConfig={worksheetConfig}
+      />
     );
   }
 
@@ -133,408 +148,84 @@ export default function CreateWorksheet({ footerLinks, appName }) {
     <Layout
       _header={{
         title:
-          pageName === "ListOfWorksheet"
+          pageName === "ListOfQuestions"
             ? t("Add Questions")
+            : pageName === "filterData"
+            ? formObject.name
             : pageName === "AddDescriptionPage"
             ? t("Add Description")
-            : t("New Worksheet"),
+            : t("CREATE_NEW_WORKSHEET"),
         _subHeading: { fontWeight: 500, textTransform: "uppercase" },
       }}
-      _appBar={{ languages: manifest.languages }}
+      _appBar={{
+        languages: manifestLocal.languages,
+        onPressBackButton: handleBackButton,
+      }}
       subHeader={
-        pageName === "ListOfWorksheet"
-          ? t("Chapter 1: The Fish Tail")
-          : pageName === "AddDescriptionPage"
-          ? t("Enter Worksheet Details")
-          : t("Show questions based on")
+        <H2 textTransform="inherit">
+          {pageName === "ListOfQuestions"
+            ? formObject.name
+              ? t("YOUR_WORKSHEET_HAS_BEEN_CREATED")
+              : t("YOU_CAN_SEE_ALL_QUESTIONS_HERE")
+            : pageName === "AddDescriptionPage"
+            ? t("ENTER_WORKSHEET_DETAILS")
+            : t("SHOW_QUESTIONS_BASED_ON")}
+        </H2>
       }
       _subHeader={{
-        bg: "worksheetCard.500",
-        _text: {
-          fontSize: "16px",
-          fontWeight: "600",
-          textTransform: "inherit",
-        },
+        bg: colors.cardBg,
       }}
       _footer={footerLinks}
     >
-      {pageName === "ListOfWorksheet" ? (
-        <ListOfWorksheet {...{ questions, setQuestions, setPageName }} />
-      ) : pageName === "AddDescriptionPage" ? (
-        <AddDescriptionPage {...{ questions, setQuestions, setPageName }} />
+      {["ListOfQuestions", "filterData"].includes(pageName) && !alertMessage ? (
+        <ListOfQuestions
+          {...{
+            manifest,
+            appName,
+            questions,
+            setQuestions,
+            pageName,
+            setPageName,
+            formObject,
+            setFormObject,
+          }}
+        />
+      ) : pageName === "WorksheetTemplate" && !alertMessage ? (
+        questions.length > 0 ? (
+          <WorksheetTemplate onPress={handleWorksheetTemplateOnPress} />
+        ) : (
+          ""
+        )
+      ) : pageName === "AddDescriptionPage" && !alertMessage ? (
+        <AddDescriptionPage
+          {...{
+            appName,
+            worksheetStartTime,
+            createType,
+            formObject,
+            setFormObject,
+            questions,
+            setQuestions,
+            setPageName,
+          }}
+        />
       ) : (
-        <FormPage {...{ formObject, setFormObject, setPageName, setLoading }} />
+        <FormPage
+          {...{
+            manifest,
+            appName,
+            setWorksheetStartTime,
+            createType,
+            setCreateType,
+            formObject,
+            setFormObject,
+            setPageName,
+            alertMessage,
+            setAlertMessage,
+            setLimit,
+          }}
+        />
       )}
     </Layout>
   );
 }
-
-const FormInput = ({
-  data,
-  formObject,
-  setFormObject,
-  formData,
-  setFormData,
-}) => {
-  const { t } = useTranslation();
-  return (
-    data &&
-    data.map((item, index) => {
-      let attributeName = item.attributeName ? item.attributeName : item.name;
-      return (
-        <HStack
-          key={index}
-          bg="white"
-          p="5"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Text fontSize={"14px"} fontWeight="500">
-            {t(item.name)}
-          </Text>
-          <Button
-            {...(formObject[attributeName]
-              ? { _text: { color: "white" } }
-              : item?.buttonVariant
-              ? { variant: item.buttonVariant }
-              : { variant: "outline", _text: { color: "button.500" } })}
-            rounded="full"
-            colorScheme="button"
-            px="5"
-            rightIcon={
-              <IconByName
-                color={
-                  formObject[attributeName]
-                    ? "white"
-                    : item?.buttonVariant
-                    ? "button.500"
-                    : "button.500"
-                }
-                name="ArrowDownSLineIcon"
-                isDisabled
-              />
-            }
-            onPress={(e) => setFormData(item)}
-          >
-            {formObject[attributeName]
-              ? formObject[attributeName]
-              : `Select ${t(attributeName)}`}
-          </Button>
-        </HStack>
-      );
-    })
-  );
-};
-
-const FormPage = ({ formObject, setFormObject, setPageName, setLoading }) => {
-  const { t } = useTranslation();
-  const [formData, setFormData] = React.useState({});
-  const handelAddQuestion = () => {
-    setLoading(true);
-    setPageName("ListOfWorksheet");
-  };
-  return (
-    <Stack space={1} mb="2">
-      <FormInput
-        {...{ formObject, setFormObject, formData, setFormData }}
-        data={[
-          {
-            name: "Subject",
-            attributeName: "subject",
-            data: [
-              "Social Science",
-              "Science",
-              "Mathematics",
-              "Hindi",
-              "English",
-              "History",
-              "Geography",
-            ],
-          },
-          {
-            name: "Class",
-            attributeName: "gradeLevel",
-            data: [
-              "Class 1",
-              "Class 2",
-              "Class 3",
-              "Class 4",
-              "Class 5",
-              "Class 6",
-              "Class 7",
-              "Class 8",
-              "Class 9",
-              "Class 10",
-            ],
-          },
-          {
-            name: "Topic",
-            attributeName: "topic",
-            data: [
-              "भोजन के घटक",
-              "भोजन: यह कहाँ से आता है?",
-              "तंतु से वस्त्र तक",
-              "संसाधन",
-              "समानता",
-              "संश्लेशित रेशे  और प्लास्टिक",
-              "आखेट-खाद्य संग्राहक से भोजन उत्पादन तक",
-            ],
-          },
-        ]}
-      />
-      <Box bg="white" p="5" position="sticky" bottom="0" shadow={2}>
-        <Button.Group>
-          <Button colorScheme="button" px="5" flex="1" variant="outline">
-            {t("Auto Generate")}
-          </Button>
-          <Button
-            colorScheme="button"
-            _text={{ color: "white" }}
-            px="5"
-            flex="1"
-            onPress={handelAddQuestion}
-          >
-            {t("Add Questions")}
-          </Button>
-        </Button.Group>
-      </Box>
-      <Actionsheet isOpen={formData?.name} onClose={() => setFormData({})}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
-          <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={2} pb="25px">
-              <Text fontSize="16px" fontWeight={"600"}>
-                {t(`Select ${formData?.name}`)}
-              </Text>
-            </Stack>
-            <IconByName
-              name="CloseCircleLineIcon"
-              onPress={(e) => setFormData({})}
-            />
-          </HStack>
-        </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
-          {formData?.data &&
-            formData.data.map((value, index) => {
-              let attributeName = formData.attributeName
-                ? formData.attributeName
-                : formData.name;
-              return (
-                <Pressable
-                  key={index}
-                  p="5"
-                  onPress={(e) =>
-                    setFormObject({
-                      ...formObject,
-                      [attributeName]: [value],
-                    })
-                  }
-                  bg={
-                    formObject[attributeName]?.includes(value) ? "gray.100" : ""
-                  }
-                >
-                  <Text colorScheme="button">{value}</Text>
-                </Pressable>
-              );
-            })}
-          <Box p="5">
-            <Button
-              colorScheme="button"
-              _text={{ color: "white" }}
-              onPress={(e) => setFormData({})}
-            >
-              {t("SELECT")}
-            </Button>
-          </Box>
-        </Box>
-      </Actionsheet>
-    </Stack>
-  );
-};
-
-const ListOfWorksheet = ({ questions, setQuestions, setPageName }) => {
-  const { t } = useTranslation();
-  const [width, Height] = useWindowSize();
-  let fillInTheBlankQuestions = questions.filter((e) => e.qType === "SA");
-  let mcqQuestions = questions.filter((e) => e.qType === "MCQ");
-  let aqQuestions = questions.filter((e) => e.qType === "AQ");
-  const [selectData, setSelectData] = React.useState([]);
-  const [isDataFilter, setIsDataFilter] = React.useState(false);
-
-  return (
-    <Stack>
-      {isDataFilter ? (
-        <Box bg="successAlert.500" p="5">
-          <HStack justifyContent="space-between">
-            <Text fontSize="14px" fontWeight="500" color="successAlertText.500">
-              ({questions.length}) New Questions Added
-            </Text>
-            <IconByName
-              name="CloseCircleLineIcon"
-              color="successAlertText.500"
-              p="0"
-              onPress={(e) => setIsDataFilter(false)}
-            />
-          </HStack>
-        </Box>
-      ) : (
-        ""
-      )}
-      <Collapsible
-        header="Choose correct answer(s) from the given choices"
-        _header={{ py: 5 }}
-      >
-        <ScrollView maxH={Height}>
-          <Box bg="white">
-            <VStack space="5">
-              {mcqQuestions.map((question, index) => (
-                <QuestionBox
-                  _box={{ py: "12px", px: "16px" }}
-                  key={index}
-                  questionObject={question}
-                  {...(isDataFilter ? {} : { selectData, setSelectData })}
-                />
-              ))}
-            </VStack>
-          </Box>
-        </ScrollView>
-      </Collapsible>
-      <Collapsible header="Fill in the blanks" _header={{ py: 5 }}>
-        <ScrollView maxH={Height}>
-          <Box bg="white">
-            <VStack space="5">
-              {fillInTheBlankQuestions.map((question, index) => (
-                <QuestionBox
-                  _box={{ py: "12px", px: "16px" }}
-                  key={index}
-                  questionObject={question}
-                  {...(isDataFilter ? {} : { selectData, setSelectData })}
-                />
-              ))}
-            </VStack>
-          </Box>
-        </ScrollView>
-      </Collapsible>
-      <Collapsible header="Answer the questions" _header={{ py: 5 }}>
-        <ScrollView maxH={Height}>
-          <Box bg="white">
-            <VStack space="5">
-              {aqQuestions.map((question, index) => (
-                <QuestionBox
-                  _box={{ py: "12px", px: "16px" }}
-                  key={index}
-                  questionObject={question}
-                  {...(isDataFilter ? {} : { selectData, setSelectData })}
-                />
-              ))}
-            </VStack>
-          </Box>
-        </ScrollView>
-      </Collapsible>
-      <Box bg="white" p="5" position="sticky" bottom="0" shadow={2}>
-        {isDataFilter ? (
-          <Button.Group>
-            <Button
-              colorScheme="button"
-              px="5"
-              flex="1"
-              variant="outline"
-              onPress={(e) => setPageName("FormPage")}
-            >
-              {t("Save As Draft")}
-            </Button>
-            <Button
-              colorScheme="button"
-              _text={{ color: "white" }}
-              px="5"
-              flex="1"
-              onPress={(e) => setPageName("AddDescriptionPage")}
-            >
-              {t("Publish")}
-            </Button>
-          </Button.Group>
-        ) : (
-          <>
-            <Text fontSize="10px" fontWeight="700" py="4">
-              Attention: You have selected 20 questions to add to the worksheet.
-            </Text>
-            <Button.Group>
-              <Button
-                colorScheme="button"
-                px="5"
-                flex="1"
-                variant="outline"
-                onPress={(e) => setPageName("FormPage")}
-              >
-                {t("Cancel")}
-              </Button>
-              <Button
-                colorScheme="button"
-                _text={{ color: "white" }}
-                px="5"
-                flex="1"
-                onPress={(e) => {
-                  setQuestions(selectData);
-                  setIsDataFilter(true);
-                }}
-              >
-                {t("Add Questions")}
-              </Button>
-            </Button.Group>
-          </>
-        )}
-      </Box>
-    </Stack>
-  );
-};
-
-const AddDescriptionPage = ({ setPageName }) => {
-  const { t } = useTranslation();
-  const [formData, setFormData] = React.useState({});
-  const formInput = [
-    { name: "title", placeholder: "Enter Title", label: "Title" },
-    {
-      name: "description",
-      placeholder: "Enter Description",
-      label: "Description",
-    },
-    {
-      name: "difficulty_level",
-      placeholder: "Enter Difficulty level",
-      label: "Difficulty level",
-    },
-    { name: "topics", placeholder: "Enter Topics", label: "Topics" },
-    { name: "subject", placeholder: "Enter Subject", label: "Subject" },
-    { name: "level", placeholder: "Enter Level", label: "Level" },
-    { name: "skills", placeholder: "Enter Skills", label: "Skills" },
-  ];
-  return (
-    <Box>
-      {formInput.map((item, index) => {
-        return (
-          <Box key={index + item.name} p="5" bg="white">
-            <FormControl>
-              <FormControl.Label>
-                <Text fontSize={"14px"} fontWeight="500">
-                  {item.label}
-                </Text>
-              </FormControl.Label>
-              <Input variant="filled" p={2} {...item} key={index + item.name} />
-            </FormControl>
-          </Box>
-        );
-      })}
-
-      <Box bg="white" p="5" position="sticky" bottom="0" shadow={2}>
-        <Button
-          colorScheme="button"
-          _text={{ color: "white" }}
-          px="5"
-          flex="1"
-          onPress={(e) => setPageName("success")}
-        >
-          {t("Save and Publish")}
-        </Button>
-      </Box>
-    </Box>
-  );
-};

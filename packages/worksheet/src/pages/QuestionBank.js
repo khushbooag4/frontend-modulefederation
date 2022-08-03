@@ -5,10 +5,14 @@ import {
   FilterButton,
   useWindowSize,
   Loading,
+  overrideColorTheme,
+  H2,
+  questionRegistryService,
 } from "@shiksha/common-lib";
 import QuestionBox from "components/QuestionBox";
-import { getAllQuestions } from "services";
 import { Box, ScrollView, VStack } from "native-base";
+import colorTheme from "../colorTheme";
+const colors = overrideColorTheme(colorTheme);
 
 export default function QuestionBank({ footerLinks, appName }) {
   const { t } = useTranslation();
@@ -18,7 +22,9 @@ export default function QuestionBank({ footerLinks, appName }) {
   const [loading, setLoading] = React.useState(true);
 
   useEffect(async () => {
-    const questions = await getAllQuestions(filterObject);
+    const questions = await questionRegistryService.getAllQuestions(
+      filterObject
+    );
     setQuestions(questions);
     setLoading(false);
   }, [filterObject]);
@@ -37,23 +43,18 @@ export default function QuestionBank({ footerLinks, appName }) {
         title: translationCheck("MY_CLASSES", "Question Bank"),
         avatar: true,
       }}
-      bg="white"
+      bg={colors.white}
       _appBar={{ languages: ["en"] }}
-      subHeader={t("THE_CLASSES_YOU_TAKE")}
+      subHeader={<H2 textTransform="inherit">{t("THE_CLASSES_YOU_TAKE")}</H2>}
       _subHeader={{
-        bg: "worksheetCard.500",
-        _text: {
-          fontSize: "16px",
-          fontWeight: "600",
-          textTransform: "inherit",
-        },
+        bg: colors.cardBg,
       }}
       _footer={footerLinks}
     >
       <FilterButton
         getObject={setFilterObject}
         _box={{ p: 5 }}
-        _actionSheet={{ bg: "worksheetCard.500" }}
+        _actionSheet={{ bg: colors.cardBg }}
         filters={[
           {
             name: "Subject",
@@ -101,7 +102,7 @@ export default function QuestionBank({ footerLinks, appName }) {
       />
       {/* <QuestionHeading text="Fill in the blanks" /> */}
       <ScrollView maxH={Height}>
-        <Box bg="white" p="5">
+        <Box bg={colors.white} p="5">
           <VStack space="5">
             {questions &&
               questions.map((question, index) => (

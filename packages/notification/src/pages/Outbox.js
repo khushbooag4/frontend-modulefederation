@@ -1,4 +1,5 @@
 import React from "react";
+import { useState, useEffect } from "react";
 import {
   Text,
   Box,
@@ -20,38 +21,35 @@ import {
   Tab,
   H2,
   Collapsible,
+  BodyLarge,
+  BodyMedium,
+  Subtitle,
+  BodySmall,
+  H3,
+  overrideColorTheme,
+  H1,
+  notificationRegistryService,
+  FilterButton,
 } from "@shiksha/common-lib";
 import moment from "moment";
 import manifest from "../manifest.json";
-
-const notificationData = [
-  {
-    name: "Absent Today",
-    text: "Hello Mr. Rajesh Sharma, this is to inform you that your ward Sheetal is absent in school on Wednesday, 12th of January 2022.",
-    dateTime: moment().add("2", "minute").format("hh:mmA"),
-    type: "Attendance",
-  },
-  {
-    name: "Absent Today",
-    text: "Worksheets help the kids in exploring multiple concepts They develop fine motor skills, logical thinking",
-    dateTime: moment().add("2", "minute").format("hh:mmA"),
-    type: "Attendance",
-  },
-];
-
-const filters = [
-  { name: "Module", data: ["Lesson Plans", "Attendance", "Timtable"] },
-  { name: "Recipient", data: [] },
-  { name: "Class", data: [] },
-];
+import colorTheme from "../colorTheme";
+const colors = overrideColorTheme(colorTheme);
 
 const Outbox = ({ footerLinks }) => {
   const { t } = useTranslation();
-  const [showModalOutbox, setShowModalOutbox] = React.useState(false);
+  const [showModalOutbox, setShowModalOutbox] = useState(false);
+  const [notificationInfo, setNotificationInfo] = useState([]);
+  const [page, setPage] = useState(0);
+  const [date, setDate] = useState({});
 
-  React.useEffect(() => {
-    capture("PAGE");
-  }, []);
+  const getDateFromCalendar = () => {
+    setDate(moment().add(page, "days"));
+  };
+
+  useEffect(() => {
+    getDateFromCalendar();
+  }, [page]);
 
   return (
     <Layout
@@ -65,21 +63,21 @@ const Outbox = ({ footerLinks }) => {
             rounded="full"
             colorScheme="button"
             variant="outline"
-            bg="viewNotification.600"
+            bg={colors.notificationbtnBg}
             px="5"
             py="4px"
             _text={{ textTransform: "capitalize", fontSize: "14px" }}
             rightIcon={<IconByName name="ArrowDownSLineIcon" isDisabled />}
             onPress={(e) => setShowModalOutbox(true)}
           >
-            {t("Outbox")}
+            {t("OUTBOX")}
           </Button>
         ),
       }}
       _appBar={{ languages: manifest.languages }}
-      subHeader={t("VIEW_YOUR_OUTGOMING_NOTIFICATIONS")}
+      subHeader={t("VIEW_YOUR_OUTGOING_NOTIFICATIONS")}
       _subHeader={{
-        bg: "classCard.500",
+        bg: colors.cardBg,
         py: "22px",
         _text: {
           fontSize: "16px",
@@ -90,34 +88,54 @@ const Outbox = ({ footerLinks }) => {
       _footer={footerLinks}
     >
       <Tab
-        _box={{ bg: "white", p: 5 }}
+        _box={{ bg: colors.white, p: 5 }}
         routes={[
-          { title: t("Scheduled"), component: <Schedule /> },
-          { title: t("Sent"), component: <Send /> },
+          {
+            title: t("Scheduled"),
+            component: (
+              <Schedule
+                data={notificationInfo}
+                page={page}
+                setPage={setPage}
+                date={date}
+              />
+            ),
+          },
+          {
+            title: t("Sent"),
+            component: (
+              <Send
+                data={notificationInfo}
+                page={page}
+                setPage={setPage}
+                date={date}
+              />
+            ),
+          },
         ]}
       />
       <Actionsheet
         isOpen={showModalOutbox}
         onClose={() => setShowModalOutbox(false)}
       >
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <H2 fontWeight={"500"}>{t("NOTIFCATION_ACTION")}</H2>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("NOTIFICATION_ACTION")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
-              color="classCard.900"
+              color={colors.cardCloseIcon}
               onPress={(e) => setShowModalOutbox(false)}
             />
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
+        <Box bg={colors.white} width={"100%"}>
           <Link href={"/notification"}>
             <Box p="5">{t("INBOX")}</Box>
           </Link>
           <Link href={"/notification/outbox"}>
-            <Box p="5">{t("Outbox")}</Box>
+            <Box p="5">{t("OUTBOX")}</Box>
           </Link>
           <Box p="5">
             <Button
@@ -134,136 +152,170 @@ const Outbox = ({ footerLinks }) => {
   );
 };
 
-const Schedule = () => {
+const Schedule = ({ data, page, setPage, date }) => {
   const { t } = useTranslation();
-  const [page, setPage] = React.useState(0);
-  const [showModal, setShowModal] = React.useState(false);
-  const [showModalMore, setShowModalMore] = React.useState(false);
-  const [filterData, setFilterData] = React.useState(false);
-  const [filtered, setFiltered] = React.useState(false);
-  const [notification, setNotification] = React.useState({});
-  const [groupValue, setGroupValue] = React.useState([]);
-  const [selectOptions, setSelectOptions] = React.useState(["Mark as read"]);
+  // const [page, setPage] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [showModalMore, setShowModalMore] = useState(false);
+  const [filterData, setFilterData] = useState(false);
+  const [filtered, setFiltered] = useState(false);
+  const [notification, setNotification] = useState({});
+  const [groupValue, setGroupValue] = useState([]);
+  const [selectOptions, setSelectOptions] = useState(["Mark as read"]);
+  const [filterObject, setFilterObject] = useState({});
+  const [refinedData, setRefinedData] = useState([]);
+  const [currentUserNotifications, setCurrentUserNotifications] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [showMoreAdmin, setShowMoreAdmin] = useState(false);
+  const [showMoreUser, setShowMoreUser] = useState(false);
 
   const CalendarBar = React.lazy(() => import("attendance/CalendarBar"));
+
+  const GetNotificationsScheduledByAdmin = async () => {
+    const FilterData1 = getFilterDetails();
+    // const FilterDataWithUserDetails = {
+    //   ...FilterData1, userType: "Admin"
+    // }
+    const resp1 =
+      await notificationRegistryService.sendScheduledNotificationSearch({
+        //limit: "8",
+        filters: FilterData1,
+      });
+    setAdminNotifications(resp1);
+    return resp1;
+  };
+
+  const GetNotificationsScheduledByCurrentUser = async () => {
+    const FilterData1 = getFilterDetails();
+    const FilterDataWithUserDetails = {
+      ...FilterData1,
+      sentBy: {
+        eq: localStorage.getItem("id"),
+      },
+    };
+    const resp2 =
+      await notificationRegistryService.sendScheduledNotificationSearch({
+        //limit: "8",
+        filters: FilterDataWithUserDetails,
+      });
+    setCurrentUserNotifications(resp2);
+    return resp2;
+  };
+
+  const getFilterDetails = () => {
+    let latestDate = moment(date).format("YYYY-MM-DD");
+    let newFilterObject = {};
+    const filterObject1 = {
+      ...filterObject,
+      osCreatedAt: latestDate,
+    };
+    const keyarr = Object.keys(filterObject1);
+    keyarr.forEach((item) => {
+      newFilterObject = {
+        ...newFilterObject,
+        [item]: { ["eq"]: filterObject1[item] },
+      };
+    });
+    return newFilterObject;
+  };
+
+  useEffect(() => {
+    capture("PAGE");
+    GetNotificationsScheduledByAdmin();
+    GetNotificationsScheduledByCurrentUser();
+  }, [filterObject, date]);
+
   return (
     <Stack space={1} mb="2">
       <VStack space="1">
-        <Box bg="white" p="5">
+        <Box bg={colors.white} p="5">
           <HStack justifyContent="space-between" alignItems="center">
             <CalendarBar {...{ page, setPage }} />
-            <Checkbox
+            {/* <Checkbox
               colorScheme="button"
-              borderColor="button.500"
+              borderColor={colors.primary}
               borderRadius="0"
-              _text={{ color: "button.500", fontSize: "14px" }}
+              _text={{ color: colors.primary, fontSize: "14px" }}
             >
               {t("MARK_ALL_READ")}
-            </Checkbox>
+            </Checkbox> */}
           </HStack>
         </Box>
+        <FilterButton
+          getObject={setFilterObject}
+          _box={{ p: 5 }}
+          _actionSheet={{ bg: "worksheetCard.500" }}
+          isResettableFilter={true}
+          filters={[
+            {
+              name: "Module",
+              attributeName: "module",
+              type: "string",
+              data: ["Lesson Plans", "Attendance", "Worksheet"],
+            },
+          ]}
+        />
         <Box bg="white" p="5" roundedBottom={"xl"}>
-          <HStack justifyContent="end" alignItems="center" pb="5">
-            {!filtered ? (
-              <Button
-                rounded="full"
-                colorScheme="button"
-                variant="outline"
-                px="5"
-                _text={{ textTransform: "capitalize" }}
-                onPress={(e) => setFiltered(true)}
-              >
-                {t("FILTER")}
-              </Button>
-            ) : (
-              <ScrollView horizontal={true}>
-                <HStack justifyContent="end" alignItems="center" py="4">
-                  {filters.map((value, index) => {
-                    const isSelect = groupValue.filter((e) =>
-                      value?.data.includes(e)
-                    ).length;
-                    return (
-                      <Button
-                        key={index}
-                        mr="1"
-                        rounded="full"
-                        bg="viewNotification.800"
-                        colorScheme="button"
-                        {...(isSelect < 1 ? { variant: "outline" } : {})}
-                        px="5"
-                        rightIcon={
-                          <IconByName
-                            color={isSelect < 1 ? "button.500" : "white"}
-                            name="ArrowDownSLineIcon"
-                            isDisabled
-                          />
-                        }
-                        onPress={(e) => {
-                          if (value?.data && value?.data.length > 0) {
-                            setFilterData(value?.data);
-                          }
-                        }}
-                      >
-                        <Text color={isSelect > 0 ? "white" : "button.500"}>
-                          {value.name}{" "}
-                          {groupValue.filter((e) => value?.data.includes(e))
-                            .length > 0 && groupValue[0]
-                            ? groupValue[0]
-                            : ""}
-                        </Text>
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    mr="1"
-                    rounded="full"
-                    colorScheme="button"
-                    variant="outline"
-                    px="5"
-                    bg="viewNotification.800"
-                    _text={{
-                      textTransform: "capitelize",
-                      fontWeight: "400",
-                      fontSize: "14px",
-                    }}
-                    rightIcon={
-                      <IconByName
-                        color="button.500"
-                        name="ArrowDownSLineIcon"
-                        isDisabled
-                      />
-                    }
-                    onPress={(e) => setFiltered(false)}
-                  >
-                    {t("RESET_FILTER")}
-                  </Button>
-                </HStack>
-              </ScrollView>
-            )}
-          </HStack>
-
-          <Collapsible header="Scheduled by admin">
-            <NotificationBox
-              data={notificationData}
-              onPressMore={(e) => setShowModalMore(true)}
-              onPress={(notification) => {
-                setShowModal(true);
-                setNotification(notification);
-              }}
-            />
+          <Collapsible header={t("SCHEDULED_BY_ADMIN")}>
+            <VStack space="1">
+              <NotificationBox
+                data={adminNotifications}
+                textmsg={t("SCHEDULED_AT")}
+                showMore={showMoreAdmin}
+                setShowMore={setShowModal}
+                onPressMore={(e) => setShowModalMore(true)}
+                onPress={(notification) => {
+                  setShowModal(true);
+                  setNotification(notification);
+                }}
+              />
+              <Box alignItems="center" p="3">
+                <Pressable
+                  alignItems="center"
+                  onPress={() =>
+                    showMoreAdmin
+                      ? setShowMoreAdmin(false)
+                      : setShowMoreAdmin(true)
+                  }
+                >
+                  <Text color="button.500">
+                    {showMoreAdmin ? t("SHOW_LESS") : t("SHOW_MORE")}
+                  </Text>
+                </Pressable>
+              </Box>
+            </VStack>
           </Collapsible>
-          <Collapsible header="Scheduled by you">
-            <NotificationBox
-              data={notificationData}
-              onPressMore={(e) => {
-                setSelectOptions(["Edit Messages", "Delete messages"]);
-                setShowModalMore(true);
-              }}
-              onPress={(notification) => {
-                setShowModal(true);
-                setNotification(notification);
-              }}
-            />
+          <Collapsible header={t("SCHEDULED_BY_YOU")}>
+            <VStack space="1">
+              <NotificationBox
+                data={currentUserNotifications}
+                textmsg={t("SCHEDULED_AT")}
+                showMore={showMoreUser}
+                setShowMore={setShowModal}
+                onPressMore={(e) => {
+                  setSelectOptions(["Edit Messages", "Delete messages"]);
+                  setShowModalMore(true);
+                }}
+                onPress={(notification) => {
+                  setShowModal(true);
+                  setNotification(notification);
+                }}
+              />
+              <Box alignItems="center" p="3">
+                <Pressable
+                  alignItems="center"
+                  onPress={() =>
+                    showMoreUser
+                      ? setShowMoreUser(false)
+                      : setShowMoreUser(true)
+                  }
+                >
+                  <Text color="button.500">
+                    {showMoreUser ? t("SHOW_LESS") : t("SHOW_MORE")}
+                  </Text>
+                </Pressable>
+              </Box>
+            </VStack>
           </Collapsible>
         </Box>
       </VStack>
@@ -271,19 +323,19 @@ const Schedule = () => {
         isOpen={showModalMore}
         onClose={() => setShowModalMore(false)}
       >
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <H2 fontWeight={"500"}>{t("NOTIFCATION_ACTION")}</H2>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("NOTIFICATION_ACTION")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
-              color="classCard.900"
+              color={colors.cardCloseIcon}
               onPress={(e) => setShowModalMore(false)}
             />
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
+        <Box bg={colors.white} width={"100%"}>
           {selectOptions.map((value, index) => (
             <Text p="5" key={index}>
               {value}
@@ -301,53 +353,49 @@ const Schedule = () => {
         </Box>
       </Actionsheet>
       <Actionsheet isOpen={showModal} onClose={() => setShowModal(false)}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
             <Stack p={5} pt={1} pb="15px">
-              <H2 fontWeight={"500"}>{t("VIEW_NOTIFCATION")}</H2>
+              <H2>{t("VIEW_NOTIFICATION")}</H2>
             </Stack>
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
+        <Box bg={colors.white} width={"100%"}>
           <Box px="5" pt="5">
             <VStack space="4">
               <HStack alignItems="center" space="1">
                 <IconByName
                   _icon={{ size: "16" }}
                   name="CheckDoubleLineIcon"
-                  color="classCard.900"
+                  color={colors.cardCloseIcon}
                   isDisabled
                 />
-                <Text fontSize="14" fontWeight="500">
-                  {t("RECEIVED_FROM_ADMIN")}
-                </Text>
+                <BodyLarge>{t("RECEIVED_FROM_ADMIN")}</BodyLarge>
               </HStack>
               <HStack
                 pb="5"
                 borderBottomWidth="1"
-                borderColor="gray.200"
+                borderColor={colors.lightGray}
                 alignItems="center"
                 space="1"
               >
                 <IconByName
                   _icon={{ size: "16" }}
                   name="TimeLineIcon"
-                  color="classCard.900"
+                  color={colors.cardCloseIcon}
                   isDisabled
                 />
-                <Text fontSize="14" fontWeight="500">
-                  {t("Scheduled weekly on Thursday, 2:00 pm")}
-                </Text>
+                <BodyLarge>{t("SCHEDULED_AT")}</BodyLarge>
               </HStack>
             </VStack>
           </Box>
           <VStack p="5" space={6}>
-            <Text fontSize="14" fontWeight="600">
-              {t("NOTICE")}
-            </Text>
-            <Text fontSize="14" fontWeight="400" textTransform={"inherit"}>
-              {notification?.text}
-            </Text>
+            <H3>{t("NOTICE")}</H3>
+            <BodyMedium textTransform={"inherit"}>
+              {notification?.content
+                ? notification?.content
+                : t("NO_CONTENT_AVAILABLE")}
+            </BodyMedium>
           </VStack>
           <Box p="5">
             <Button
@@ -361,26 +409,26 @@ const Schedule = () => {
         </Box>
       </Actionsheet>
       <Actionsheet isOpen={filterData} onClose={() => setFilterData()}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <H2 fontWeight={"500"}>{t("SELECT_MODULE")}</H2>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("SELECT_MODULE")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
-              color="classCard.900"
+              color={colors.cardCloseIcon}
               onPress={(e) => setFilterData()}
             />
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"} justifyContent="space-between">
+        <Box bg={colors.white} width={"100%"} justifyContent="space-between">
           <Box p="5">
             <Checkbox
               colorScheme="button"
-              borderColor="button.500"
+              borderColor={colors.primary}
               borderRadius="0"
             >
-              {t("Select All")}
+              {t("SELECT_ALL")}
             </Checkbox>
           </Box>
           {filterData &&
@@ -388,7 +436,7 @@ const Schedule = () => {
               <Box p="5" key={index}>
                 <Checkbox
                   colorScheme="button"
-                  borderColor="button.500"
+                  borderColor={colors.primary}
                   borderRadius="0"
                 >
                   {value}
@@ -401,6 +449,7 @@ const Schedule = () => {
               _text={{ color: "white" }}
               onPress={(e) => {
                 setGroupValue(["Attendance", "Lesson Plans", "Timtable"]);
+                //DOUBT HERE
                 setFilterData();
               }}
             >
@@ -413,139 +462,166 @@ const Schedule = () => {
   );
 };
 
-const Send = () => {
+const Send = ({ data, page, setPage, date }) => {
   const { t } = useTranslation();
-  const [page, setPage] = React.useState(0);
-  const [showModal, setShowModal] = React.useState(false);
-  const [showModalMore, setShowModalMore] = React.useState(false);
-  const [filterData, setFilterData] = React.useState(false);
-  const [filtered, setFiltered] = React.useState(false);
-  const [notification, setNotification] = React.useState({});
-  const [groupValue, setGroupValue] = React.useState([]);
-  const [selectOptions, setSelectOptions] = React.useState(["Mark as read"]);
-  const [sendBy, setSendBy] = React.useState("admin");
+  // const [page, setPage] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [showModalMore, setShowModalMore] = useState(false);
+  const [filterData, setFilterData] = useState(false);
+  const [notification, setNotification] = useState({});
+  const [groupValue, setGroupValue] = useState([]);
+  const [selectOptions, setSelectOptions] = useState(["Mark as read"]);
+  const [sendBy, setSendBy] = useState("admin");
+  const [filterObject, setFilterObject] = useState({});
+  const [currentUserNotifications, setCurrentUserNotifications] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [showMoreAdmin, setShowMoreAdmin] = useState(false);
+  const [showMoreUser, setShowMoreUser] = useState(false);
 
   const CalendarBar = React.lazy(() => import("attendance/CalendarBar"));
+
+  const GetNotificationsSentByAdmin = async () => {
+    const FilterData1 = getFilterDetails();
+    // const FilterDataWithUserDetails = {
+    //   ...FilterData1, userType: "Admin"
+    // }
+    const resp1 = await notificationRegistryService.sendNotificationSearch({
+      //limit: "8",
+      filters: FilterData1,
+    });
+    setAdminNotifications(resp1);
+    return resp1;
+  };
+
+  const GetNotificationsSentByCurrentUser = async () => {
+    const FilterData1 = getFilterDetails();
+    const FilterDataWithUserDetails = {
+      ...FilterData1,
+      sentBy: { eq: localStorage.getItem("id") },
+    };
+    const resp2 = await notificationRegistryService.sendNotificationSearch({
+      //limit: "8",
+      filters: FilterDataWithUserDetails,
+    });
+    setCurrentUserNotifications(resp2);
+    return resp2;
+  };
+
+  const getFilterDetails = () => {
+    let latestDate = moment(date).format("YYYY-MM-DD");
+    let newFilterObject = {};
+    const filterObject1 = {
+      ...filterObject,
+      osCreatedAt: latestDate,
+    };
+    const keyarr = Object.keys(filterObject1);
+    keyarr.forEach((item) => {
+      newFilterObject = {
+        ...newFilterObject,
+        [item]: { ["eq"]: filterObject1[item] },
+      };
+    });
+    return newFilterObject;
+  };
+
+  useEffect(() => {
+    capture("PAGE");
+    GetNotificationsSentByAdmin();
+    GetNotificationsSentByCurrentUser();
+  }, [filterObject, date]);
 
   return (
     <Stack space={1} mb="2">
       <VStack space="1">
-        <Box bg="white" p="5">
+        <Box bg={colors.white} p="5">
           <HStack justifyContent="space-between" alignItems="center">
             <CalendarBar {...{ page, setPage }} />
-            <Checkbox
+            {/* <Checkbox
               colorScheme="button"
-              borderColor="button.500"
+              borderColor={colors.primary}
               borderRadius="0"
-              _text={{ color: "button.500", fontSize: "14px" }}
+              _text={{ color: colors.primary, fontSize: "14px" }}
             >
               {t("MARK_ALL_READ")}
-            </Checkbox>
+            </Checkbox> */}
           </HStack>
         </Box>
+        <FilterButton
+          getObject={setFilterObject}
+          _box={{ p: 5 }}
+          _actionSheet={{ bg: "worksheetCard.500" }}
+          isResettableFilter={true}
+          filters={[
+            {
+              name: "Module",
+              attributeName: "module",
+              type: "string",
+              data: ["Lesson Plans", "Attendance", "Worksheet"],
+            },
+          ]}
+        />
         <Box bg="white" p="5" roundedBottom={"xl"}>
-          <HStack justifyContent="end" alignItems="center" pb="5">
-            {!filtered ? (
-              <Button
-                rounded="full"
-                colorScheme="button"
-                variant="outline"
-                px="5"
-                _text={{ textTransform: "capitelize" }}
-                onPress={(e) => setFiltered(true)}
-              >
-                {t("FILTER")}
-              </Button>
-            ) : (
-              <ScrollView horizontal={true}>
-                <HStack justifyContent="end" alignItems="center" py="4">
-                  {filters.map((value, index) => {
-                    const isSelect = groupValue.filter((e) =>
-                      value?.data.includes(e)
-                    ).length;
-                    return (
-                      <Button
-                        key={index}
-                        mr="1"
-                        rounded="full"
-                        bg="viewNotification.800"
-                        colorScheme="button"
-                        {...(isSelect < 1 ? { variant: "outline" } : {})}
-                        px="5"
-                        rightIcon={
-                          <IconByName
-                            color={isSelect < 1 ? "button.500" : "white"}
-                            name="ArrowDownSLineIcon"
-                            isDisabled
-                          />
-                        }
-                        onPress={(e) => {
-                          if (value?.data && value?.data.length > 0) {
-                            setFilterData(value?.data);
-                          }
-                        }}
-                      >
-                        <Text color={isSelect > 0 ? "white" : "button.500"}>
-                          {value.name}{" "}
-                          {groupValue.filter((e) => value?.data.includes(e))
-                            .length > 0 && groupValue[0]
-                            ? groupValue[0]
-                            : ""}
-                        </Text>
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    mr="1"
-                    rounded="full"
-                    colorScheme="button"
-                    variant="outline"
-                    px="5"
-                    bg="viewNotification.800"
-                    _text={{
-                      textTransform: "capitelize",
-                      fontWeight: "500",
-                      fontSize: "14px",
-                    }}
-                    rightIcon={
-                      <IconByName
-                        color="button.500"
-                        name="ArrowDownSLineIcon"
-                        isDisabled
-                      />
-                    }
-                    onPress={(e) => setFiltered(false)}
-                  >
-                    {t("RESET_FILTER")}
-                  </Button>
-                </HStack>
-              </ScrollView>
-            )}
-          </HStack>
-
-          <Collapsible header="Scheduled by admin">
-            <NotificationBox
-              data={notificationData}
-              onPressMore={(e) => setShowModalMore(true)}
-              onPress={(notification) => {
-                setShowModal(true);
-                setNotification(notification);
-              }}
-            />
+          <Collapsible header={t("SENT_BY_ADMIN")}>
+            <VStack space="1">
+              <NotificationBox
+                data={adminNotifications}
+                textmsg={t("SENT_AT")}
+                showMore={showMoreAdmin}
+                setShowMore={setShowModal}
+                onPressMore={(e) => setShowModalMore(true)}
+                onPress={(notification) => {
+                  setShowModal(true);
+                  setNotification(notification);
+                }}
+              />
+              <Box alignItems="center" p="3">
+                <Pressable
+                  alignItems="center"
+                  onPress={() =>
+                    showMoreAdmin
+                      ? setShowMoreAdmin(false)
+                      : setShowMoreAdmin(true)
+                  }
+                >
+                  <Text color="button.500">
+                    {showMoreAdmin ? t("SHOW_LESS") : t("SHOW_MORE")}
+                  </Text>
+                </Pressable>
+              </Box>
+            </VStack>
           </Collapsible>
-          <Collapsible header="Scheduled by you">
-            <NotificationBox
-              data={notificationData}
-              onPressMore={(e) => {
-                setSelectOptions(["Delete messages"]);
-                setShowModalMore(true);
-              }}
-              onPress={(notification) => {
-                setShowModal(true);
-                setSendBy("teacher");
-                setNotification(notification);
-              }}
-            />
+          <Collapsible header={t("SENT_BY_YOU")}>
+            <VStack space="1">
+              <NotificationBox
+                data={currentUserNotifications}
+                textmsg={t("SENT_AT")}
+                showMore={showMoreUser}
+                setShowMore={setShowModal}
+                onPressMore={(e) => {
+                  setSelectOptions(["Delete messages"]);
+                  setShowModalMore(true);
+                }}
+                onPress={(notification) => {
+                  setShowModal(true);
+                  setSendBy("teacher");
+                  setNotification(notification);
+                }}
+              />
+              <Box alignItems="center" p="3">
+                <Pressable
+                  alignItems="center"
+                  onPress={() =>
+                    showMoreUser
+                      ? setShowMoreUser(false)
+                      : setShowMoreUser(true)
+                  }
+                >
+                  <Text color="button.500">
+                    {showMoreUser ? t("SHOW_LESS") : t("SHOW_MORE")}
+                  </Text>
+                </Pressable>
+              </Box>
+            </VStack>
           </Collapsible>
         </Box>
       </VStack>
@@ -553,16 +629,14 @@ const Send = () => {
         isOpen={showModalMore}
         onClose={() => setShowModalMore(false)}
       >
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <Text fontSize="16px" fontWeight={"600"}>
-                {t("NOTIFCATION_ACTION")}
-              </Text>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("NOTIFICATION_ACTION")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
-              color="classCard.900"
+              color={colors.cardCloseIcon}
               onPress={(e) => setShowModalMore(false)}
             />
           </HStack>
@@ -585,14 +659,14 @@ const Send = () => {
         </Box>
       </Actionsheet>
       <Actionsheet isOpen={showModal} onClose={() => setShowModal(false)}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <H2 fontWeight={"500"}>{t("VIEW_NOTIFCATION")}</H2>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("VIEW_NOTIFICATION")}</H2>
             </Stack>
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
+        <Box bg={colors.white} width={"100%"}>
           {sendBy === "admin" ? (
             <Box px="5" pt="5">
               <VStack space="4">
@@ -600,23 +674,21 @@ const Send = () => {
                   <IconByName
                     _icon={{ size: "16" }}
                     name="CheckDoubleLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
-                  <Text fontSize="14" fontWeight="500">
-                    {t("RECEIVED_FROM_ADMIN")}
-                  </Text>
+                  <BodyLarge>{t("RECEIVED_FROM_ADMIN")}</BodyLarge>
                 </HStack>
                 <HStack alignItems="center" space="1">
                   <IconByName
                     _icon={{ size: "16" }}
                     name="TimeLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
-                  <Text fontSize="14" fontWeight="500">
+                  {/* <BodyLarge>
                     {t("Scheduled weekly on Thursday, 2:00 pm")}
-                  </Text>
+                  </BodyLarge> */}
                 </HStack>
               </VStack>
             </Box>
@@ -624,86 +696,78 @@ const Send = () => {
             ""
           )}
           <VStack p="5" space={6}>
-            <Text fontSize="14" fontWeight="600">
-              {t("NOTICE")}
-            </Text>
-            <Text fontSize="14" fontWeight="400" textTransform={"inherit"}>
+            <H3>{t("NOTICE")}</H3>
+            <BodyMedium textTransform={"inherit"}>
               {notification?.text}
-            </Text>
+            </BodyMedium>
           </VStack>
           {sendBy === "teacher" ? (
             <VStack>
-              <Box p="5" borderBottomWidth="1" borderColor="gray.200">
+              <Box p="5" borderBottomWidth="1" borderColor={colors.lightGray}>
                 <HStack alignItems="center" justifyContent="space-between">
                   <HStack alignItems="center" space="1">
                     <IconByName
                       _icon={{ size: "16" }}
                       name="CheckDoubleLineIcon"
-                      color="classCard.900"
+                      color={colors.cardCloseIcon}
                       isDisabled
                     />
-                    <Text fontSize="14" fontWeight="500">
-                      {t("19 parents received")}
-                    </Text>
+                    <BodyLarge>"19 parents received"</BodyLarge>
                   </HStack>
                   <IconByName
                     _icon={{ size: "16" }}
                     name="ArrowRightSLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
                 </HStack>
               </Box>
-              <Box p="5" borderBottomWidth="1" borderColor="gray.200">
+              <Box p="5" borderBottomWidth="1" borderColor={colors.lightGray}>
                 <HStack alignItems="center" justifyContent="space-between">
                   <HStack alignItems="center" space="1">
                     <IconByName
                       _icon={{ size: "16" }}
                       name="TimeLineIcon"
-                      color="classCard.900"
+                      color={colors.cardCloseIcon}
                       isDisabled
                     />
-                    <Text fontSize="14" fontWeight="500">
-                      {t("14 parents didnt receive")}
-                    </Text>
+                    <BodyLarge>"14 parents didn't receive"</BodyLarge>
                   </HStack>
                   <IconByName
                     _icon={{ size: "16" }}
                     name="ArrowRightSLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
                 </HStack>
               </Box>
-              <Box p="5" borderBottomWidth="1" borderColor="gray.200">
+              <Box p="5" borderBottomWidth="1" borderColor={colors.lightGray}>
                 <Button colorScheme="button" variant="outline">
-                  resend
+                  {t("RESEND")}
                 </Button>
               </Box>
-              <Box p="5" borderBottomWidth="1" borderColor="gray.200">
+              <Box p="5" borderBottomWidth="1" borderColor={colors.lightGray}>
                 <HStack alignItems="center" space="1">
                   <IconByName
                     _icon={{ size: "16" }}
                     name="CheckDoubleLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
-                  <Text fontSize="14" fontWeight="500">
-                    {t("Sent - 23rd April, 2022.")}
-                  </Text>
+                  <BodyLarge>"Sent - 23rd April, 2022."</BodyLarge>
                 </HStack>
               </Box>
-              <Box p="5" borderBottomWidth="1" borderColor="gray.200">
+              <Box p="5" borderBottomWidth="1" borderColor={colors.lightGray}>
                 <HStack alignItems="center" space="1">
                   <IconByName
                     _icon={{ size: "16" }}
                     name="TimeLineIcon"
-                    color="classCard.900"
+                    color={colors.cardCloseIcon}
                     isDisabled
                   />
-                  <Text fontSize="14" fontWeight="500">
+                  <BodyLarge>
                     {t("Scheduled - weekly on Thursday, 2:00 pm")}
-                  </Text>
+                  </BodyLarge>
                 </HStack>
               </Box>
             </VStack>
@@ -722,26 +786,26 @@ const Send = () => {
         </Box>
       </Actionsheet>
       <Actionsheet isOpen={filterData} onClose={() => setFilterData()}>
-        <Actionsheet.Content alignItems={"left"} bg="classCard.500">
+        <Actionsheet.Content alignItems={"left"} bg={colors.cardBg}>
           <HStack justifyContent={"space-between"}>
-            <Stack p={5} pt={1} pb="2px">
-              <H2 fontWeight={"500"}>{t("SELECT_MODULE")}</H2>
+            <Stack p={5} pt={1} pb="15px">
+              <H2>{t("SELECT_MODULE")}</H2>
             </Stack>
             <IconByName
               name="CloseCircleLineIcon"
-              color="classCard.900"
+              color={colors.cardBg}
               onPress={(e) => setFilterData()}
             />
           </HStack>
         </Actionsheet.Content>
-        <Box bg="white" width={"100%"}>
+        <Box bg={colors.white} width={"100%"}>
           <Box p="5">
             <Checkbox
               colorScheme="button"
-              borderColor="button.500"
+              borderColor={colors.primary}
               borderRadius="0"
             >
-              {t("Select All")}
+              {t("SELECT_ALL")}
             </Checkbox>
           </Box>
           {filterData &&
@@ -749,7 +813,7 @@ const Send = () => {
               <Box p="5" key={index}>
                 <Checkbox
                   colorScheme="button"
-                  borderColor="button.500"
+                  borderColor={colors.primary}
                   borderRadius="0"
                 >
                   {value}
@@ -774,41 +838,45 @@ const Send = () => {
   );
 };
 
-const NotificationBox = ({ data, onPressMore, onPress }) => {
+const NotificationBox = ({
+  data,
+  onPressMore,
+  onPress,
+  showMore,
+  setShowMore,
+  textmsg,
+}) => {
   const line2style = {
     overflow: "hidden",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
   };
-  return data.map((value, index) => {
+  const numberOfItems = showMore ? data?.length : 2;
+  return data?.slice(0, numberOfItems).map((value, index) => {
     return (
       <Box
         key={index}
         borderWidth="1"
-        borderColor="button.500"
+        borderColor={colors.primary}
         my="2"
         p="5"
         rounded="10"
       >
         <Pressable onPress={(e) => onPress(value)}>
           <VStack space="2">
-            <HStack
+            {/* <HStack
               space="2"
               alignItems="center"
               justifyContent="space-between"
             >
-              <HStack space="2" alignItems="center">
+               <HStack space="2" alignItems="center">
                 <IconByName
                   _icon={{ size: "16" }}
                   name="UserLineIcon"
                   isDisabled
                 />
-                <Text fontSize="16px" fontWeight="600">
-                  {value.name}
-                </Text>
-                <Text fontSize="25px" color="button.500">
-                  •
-                </Text>
+                <H2>{value.name}</H2>
+                <H1 color={colors.primary}>•</H1>
               </HStack>
               <IconByName
                 _icon={{ size: "18" }}
@@ -818,10 +886,8 @@ const NotificationBox = ({ data, onPressMore, onPress }) => {
                   onPressMore();
                 }}
               />
-            </HStack>
-            <Text {...line2style} fontSize="12px" fontWeight="500">
-              {value.text}
-            </Text>
+            </HStack> */}
+            <Subtitle {...line2style}>{value?.content}</Subtitle>
             <HStack justifyContent="space-between" alignItems="center">
               <HStack space="2" alignItems="center">
                 <IconByName
@@ -829,9 +895,7 @@ const NotificationBox = ({ data, onPressMore, onPress }) => {
                   name="SurveyLineIcon"
                   isDisabled
                 />
-                <Text fontSize="12px" fontWeight="400">
-                  {value.type}
-                </Text>
+                <BodySmall>{value?.module}</BodySmall>
               </HStack>
               <HStack space="2" alignItems="center">
                 <IconByName
@@ -839,9 +903,10 @@ const NotificationBox = ({ data, onPressMore, onPress }) => {
                   name="TimeLineIcon"
                   isDisabled
                 />
-                <Text fontSize="12px" fontWeight="400">
-                  {value.dateTime}
-                </Text>
+                <BodySmall>
+                  {textmsg}
+                  {moment.utc(value?.createdAt).local().format("LT")}
+                </BodySmall>
               </HStack>
             </HStack>
           </VStack>

@@ -4,6 +4,7 @@ import Footer from './Footer'
 import { Box, Center, Stack } from 'native-base'
 import AppBar from './AppBar'
 import { useWindowSize } from '../helper'
+import HeightWidth from '../HeightWidth'
 
 export default function Layout({
   isDisabledAppBar,
@@ -16,9 +17,11 @@ export default function Layout({
   _footer
 }) {
   const [width, Height] = useWindowSize()
+  const [refFoot, serRefFoot] = React.useState({})
+
   return (
     <Center>
-      <Box minH={Height} w={width}>
+      <HeightWidth>
         <Stack
           width={'100%'}
           style={{
@@ -41,11 +44,11 @@ export default function Layout({
         {subHeader ? (
           <Box
             {...{
-              p: 4,
+              py: '6',
+              px: '5',
               position: 'relative',
-              bg: 'purple.400',
-              roundedTop: '20',
-              _text: { textTransform: 'inherit' }
+              bg: 'white',
+              roundedTop: '20'
             }}
             {..._subHeader}
           >
@@ -55,6 +58,9 @@ export default function Layout({
           <React.Fragment />
         )}
         {children}
+        <Box minH={refFoot?.clientHeight ? refFoot?.clientHeight : 85}></Box>
+      </HeightWidth>
+      <Box w={width} ref={(e) => serRefFoot(e)}>
         <Footer {..._footer} />
       </Box>
     </Center>

@@ -8,26 +8,20 @@ import { useWindowSize } from '../helper'
 export default function Footer({ menues, routeDynamics, ...props }) {
   const [selected, setSelected] = React.useState(0)
   const { t } = useTranslation()
-  const [refFoot, serRefFoot] = React.useState({})
-  const [width, Height] = useWindowSize()
 
-  const footerMenus = menues //TODO: manifest.menus.footer;
+  const [width, Height] = useWindowSize()
+  const footerMenus = menues
 
   useEffect(() => {
-    if (['/'].includes(window?.location?.pathname)) {
-      setSelected(0)
-    } else if (
-      [
-        '/worksheet',
-        '/teaching/:id',
-        '/questionBank',
-        '/:id',
-        '/worksheet/create'
-      ].includes(window?.location?.pathname)
-    ) {
-      setSelected(3)
-    } else {
+    let path = window?.location?.pathname.toString()
+    if (path.startsWith('/attendance') || path.startsWith('/class')) {
       setSelected(1)
+    } else if (path.startsWith('/worksheet')) {
+      setSelected(3)
+    } else if (path.startsWith('/mylearning')) {
+      setSelected(4)
+    } else {
+      setSelected(0)
     }
   }, [])
 
@@ -52,15 +46,7 @@ export default function Footer({ menues, routeDynamics, ...props }) {
 
   return (
     <Stack>
-      <Box minH={refFoot?.clientHeight ? refFoot?.clientHeight : 85}></Box>
-      <Box
-        flex={1}
-        safeAreaTop
-        position='fixed'
-        w={width}
-        bottom='0'
-        ref={(e) => serRefFoot(e)}
-      >
+      <Box width={width} flex={1} safeAreaTop position='fixed' bottom='0'>
         <Center flex={1}></Center>
         <HStack bg='white' alignItems='center' safeAreaBottom shadow={6}>
           {footerMenus?.map((item, index) => (
